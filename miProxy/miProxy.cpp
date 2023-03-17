@@ -91,7 +91,7 @@ int main(int argc, const char** argv)
     server_socket = get_server_socket(&server_address, listen_port);
     
     //step3: get proxy_client_socket
-    int client_socket;
+    int client_sock;
     int client_sockets[MAX_CLIENTS] = {0};
     
 
