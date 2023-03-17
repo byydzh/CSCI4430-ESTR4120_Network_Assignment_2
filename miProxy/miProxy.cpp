@@ -324,7 +324,7 @@ int main(int argc, const char** argv)
                         
                         //calculate the adapted bitrate
                         int new_bitrate = choose_bitrate(client_throughputs_current[i], bitrate_level);
-                        string chunk_name = to_string(new_bitrate) + message.substr(loc, chunk_end_position-loc);
+                        string chunk_name = to_string(new_bitrate) + message.substr(loc, chunk_end_position-loc+1);
                         //modify request
                         message.replace(start_position, end_position-start_position, to_string(new_bitrate));
                         //send the adapted request to server
