@@ -22,6 +22,7 @@
 #define MAX_CLIENTS 10
 #define MAX_MESSAGE_SIZE 10000
 #define MAX_REQUEST_LINE_LENGTH 1024
+#define MAX_BITRATE_LEVEL 10
 
 using namespace std;
 
@@ -113,6 +114,7 @@ int main(int argc, const char** argv)
     int client_sockets[MAX_CLIENTS] = {0};
     double client_throughputs_current[MAX_CLIENTS] = {0.0};
     string client_ips[MAX_CLIENTS];
+    int bitrate_level[MAX_BITRATE_LEVEL] = {0};
     
     //step4: deal with connections
     fd_set readfds;
@@ -201,7 +203,92 @@ int main(int argc, const char** argv)
                 {
                     //variables you need
                     message[valread] = '\0';
+                    size_t loc;
                     //if it's f4m request...
+                    if ((loc = message.find(".f4m")) != message.npos){
+                        string message_nolist = message, message_buffer;
+                        char buffer[MAX_MESSAGE_SIZE];
+                        message_nolist.insert(loc, "_nolist");
+                        
+                        //_nolist.f4m process
+                        if (send(server_socket, message_nolist.c_str(), message_nolist.size(), 0) < 0)
+                            printf("send to server failed\n");
+                        valread = read(server_socket, buffer, MAX_MESSAGE_SIZE);
+                        if (valread == 0){
+                            printf("---Server disconnected---\n");
+                        }
+                        buffer[valread] = '\0';
+                        message_buffer = buffer;
+                        if (send(client_socket, buffer, valread, 0) < 0)
+                            printf("send to client %d failed\n", i);
+                        
+                        //Locally parse for header length
+                        size_t header_end = message_buffer.find("\r\n\r\n");
+                        if(header_end == message_buffer.npos)
+                        {
+                            perror("Error: fail to find header_end");
+                            exit(EXIT_FAILURE);
+                        }
+                        int header_length = static_cast<int>(header_end) +4;
+                        
+                        //Locally parse for content length
+                        size_t content_length_info = message_buffer.find("Content-Length: ");
+                        if(content_length_info == message_buffer.npos)
+                        {
+                            perror("Error: fail to find content length info");
+                            exit(EXIT_FAILURE);
+                        }
+                        size_t digit_start = content_length_info + "Content-Length: ".size();
+                        size_t digit_end;
+                        for(digit_end = digit_start; isdigit(message[digit_end]); digit_end++)
+                        {
+                            ;
+                        }
+                        int content_length = stoi(message_buffer.substr(digit_start, digit_end-digit_start));
+                        
+                        // receive and send back the remaining part
+                        int remaining_length = content_length + header_length - valread;
+                        while(remaining_length > 0)
+                        {
+                            valread = read(server_socket, buffer, MAX_MESSAGE_SIZE);
+                            remaining_length -= valread;
+                            send(client_sock, buffer, valread, 0);
+                            memset(buffer, 0, MAX_MESSAGE_SIZE);
+                        }
+
+
+                        // original .f4m process
+                        if (send(server_socket, message.c_str(), message.size(), 0) < 0)
+                            printf("send to server failed\n");
+
+                        valread = read(server_socket, buffer, MAX_MESSAGE_SIZE);
+                        if (valread == 0){
+                            printf("---Server disconnected---\n");
+                        }
+                        buffer[valread] = '\0';
+                        message_buffer = buffer;
+
+                        while(1){
+                            size_t bitrate_info = message_buffer.find("bitrate: \"");
+                            if(bitrate_info == message_buffer.npos)
+                                break;
+                            digit_start = bitrate_info + "bitrate: \"".size();
+                            for(digit_end = digit_start; isdigit(message[digit_end]); digit_end++);
+                            int bitrate = stoi(message_buffer.substr(digit_start, digit_end-digit_start));
+                            
+                            for(int j=0;j<MAX_BITRATE_LEVEL;j++){
+                                if(bitrate_level[j] == 0){
+                                    bitrate_level[j] = bitrate;
+                                    break;
+                                }
+                            }
+                        }
+                        while(remaining_length > 0){
+                            valread = read(server_socket, buffer, MAX_MESSAGE_SIZE);
+                            remaining_length -= valread;
+                            memset(buffer, 0, MAX_MESSAGE_SIZE);
+                        }
+                    }
                     //if it's video chunk request...
                     //if other requests, directly send
                     else
