@@ -300,7 +300,70 @@ int main(int argc, const char** argv)
                             start_position--;
                         }
                         start_position++;
-                        message.replace(start_position, end_position-start_position, to_string(new_bitrate))
+                        //get the position of chunk_end
+                        size_t chunk_end_position = loc;
+                        while(message[chunk_end_position] != " ")
+                        {
+                            chunk_end_position++;
+                        }
+                        chunk_end_position--;
+                        
+                        //calculate the adapted bitrate
+                        int new_bitrate = choose_bitrate(client_throughputs_current[i], bitrate_level);
+                        string chunk_name = to_string(new_bitrate) + message.substr(loc, chunk_end_position-loc);
+                        //modify request
+                        message.replace(start_position, end_position-start_position, to_string(new_bitrate));
+                        //send the adapted request to server
+                        send(server_socket, message.c_str(), message.size(), 0);
+                        
+                        //Then ready to receive response from server
+                        memset(message, 0, MAX_MESSAGE_SIZE);
+                        double total_time = 0.0;
+                        auto start_time = high_resolution_clock::now();
+                        valread = read(server_socket, message, MAX_MESSAGE_SIZE);
+                        message[valread] = '\0';
+                        //send the response to client
+                        send(client_sock, message.c_str(), valread, 0);
+                        
+                        //Locally parse for header length
+                        size_t header_end = message.find("\r\n\r\n");
+                        if(header_end == message.npos)
+                        {
+                            perror("Error: fail to find header_end");
+                            exit(EXIT_FAILURE);
+                        }
+                        int header_length = static_cast<int>(header_end) +4;
+                        
+                        //Locally parse for content length
+                        size_t content_length_info = message.find("Content-Length: ");
+                        if(content_length_info == message.npos)
+                        {
+                            perror("Error: fail to find content length info");
+                            exit(EXIT_FAILURE);
+                        }
+                        size_t digit_start = content_length_info + "Content-Length: ".size();
+                        size_t digit_end;
+                        for(digit_end = digit_start; isdigit(message[digit_end]); digit_end++)
+                        {
+                            ;
+                        }
+                        int content_length = stoi(message.substr(digit_start, digit_end-digit_start));
+                        
+                        // receive and send back the remaining part
+                        int remaining_length = content_length + header_length - valread;
+                        while(remaining_length > 0)
+                        {
+                            valread = read(server_socket, message, MAX_MESSAGE_SIZE);
+                            remaining_length -= valread;
+                            send(client_sock, message.c_str(), valread, 0);
+                            memset(message, 0, MAX_MESSAGE_SIZE);
+                        }
+                        
+                        //calculate throughput and generate log
+                        total_time = duration<double>(high_resolution_clock::now() - start_time).count();
+                        double throughput_new = (content_length + header_length)*8 / (total_time*1000);
+                        client_throughputs_current[i] = alpha * throughput_new + (1-alpha) * client_throughputs_current[i];
+                        out2log(log, client_ips[i], chunk_name, www_ip, total_time, throughput_new, client_throughputs_current[i], new_bitrate, 0);
                     }
                     //if other requests, directly send
                     else
