@@ -221,16 +221,20 @@ int main(int argc, const char** argv)
                         message_nolist.insert(loc, "_nolist");
                         
                         //_nolist.f4m process
-                        if (send(server_socket, message_nolist.c_str(), message_nolist.size(), 0) < 0)
-                            printf("send to server failed\n");
+                        if (send(server_socket, message_nolist.c_str(), message_nolist.size(), 0) < 0){
+                            perror("Error: send to server failed\n");
+                            exit(EXIT_FAILURE);
+                        }
                         valread = read(server_socket, buffer, MAX_MESSAGE_SIZE);
                         if (valread == 0){
                             printf("---Server disconnected---\n");
                         }
                         buffer[valread] = '\0';
                         message_buffer = buffer;
-                        if (send(client_socket, buffer, valread, 0) < 0)
-                            printf("send to client %d failed\n", i);
+                        if (send(client_socket, buffer, valread, 0) < 0){
+                            perror("Error: send to client %d failed\n", i);
+                            exit(EXIT_FAILURE);
+                        }
                         
                         //Locally parse for header length
                         size_t header_end = message_buffer.find("\r\n\r\n");
