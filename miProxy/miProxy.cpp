@@ -25,12 +25,52 @@
 
 using namespace std;
 
+int get_server_socket(struct sockaddr_in *address, int listen_port) {
+    int yes = 1;
+    int server_socket;
+    // create a master socket
+    server_socket = socket(AF_INET, SOCK_STREAM, 0);
+    if (server_socket <= 0) {
+        perror("socket failed");
+        exit(EXIT_FAILURE);
+    }
+
+    // set master socket to allow multiple connections ,
+    // this is just a good habit, it will work without this
+    int success =
+        setsockopt(server_socket, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
+    if (success < 0) {
+        perror("setsockopt");
+        exit(EXIT_FAILURE);
+    }
+
+    // type of socket created
+    address->sin_family = AF_INET;
+    address->sin_addr.s_addr = INADDR_ANY;
+    address->sin_port = htons(listen_port);
+
+    // bind the socket to localhost port 8888
+    success = bind(server_socket, (struct sockaddr *)address, sizeof(*address));
+    if (success < 0) {
+        perror("bind failed");
+        exit(EXIT_FAILURE);
+    }
+    printf("---Listening on port %d---\n", listen_port);
+
+    // try to specify maximum of N pending connections for the server socket
+    if (listen(server_socket, MAX_CLIENTS) < 0) {
+        perror("listen");
+        exit(EXIT_FAILURE);
+    }
+    return server_socket;
+}
+
 int main(int argc, const char** argv)
 {
     //Step1: check argvs
     if(argc != 6){
         printf("Usage: %s --nodns <listen-port> <www-ip> <alpha> <log>\n",argv[0]);
-        return 0;
+        return -1;
     }
     int flag;
     int listen_port = atoi(argv[2]);
@@ -44,14 +84,17 @@ int main(int argc, const char** argv)
         flag = 2;
     else
         flag = 0;
-    
+
     //step2: get proxy_server_socket
     int server_socket;
     struct sockaddr_in server_address;
-    server_socket = get_proxy_server_socket(&server_address, listen_port);
+    server_socket = get_server_socket(&server_address, listen_port);
     
     //step3: get proxy_client_socket
+    int client_socket;
+    int client_sockets[MAX_CLIENTS] = {0};
     
+
     //step4: deal with connections
     fd_set readfds;
     while (1)
@@ -59,7 +102,7 @@ int main(int argc, const char** argv)
         // clear the socket set
         FD_ZERO(&readfds);
 
-        // add server socket to set
+        // add master socket to set
         FD_SET(server_socket, &readfds);
         for (int i = 0; i < MAXCLIENTS; i++)
         {
