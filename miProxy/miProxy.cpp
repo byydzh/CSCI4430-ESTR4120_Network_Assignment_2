@@ -207,14 +207,14 @@ int main(int argc, const char** argv)
                     else
                     {
                         //first send the request to server
-                        send(server_socket, message, valread, 0);
+                        send(server_socket, message.c_str(), valread, 0);
                         
                         //Then receive response from server, and send back to client
                         memset(message, 0, MAX_MESSAGE_SIZE);
                         valread = read(server_socket, message, MAX_MESSAGE_SIZE);
                         message[valread] = '\0';
                         //send the response to client
-                        send(client_sock, message, valread, 0);
+                        send(client_sock, message.c_str(), valread, 0);
                         
                         //Locally parse for header length
                         size_t header_end = message.find("\r\n\r\n");
@@ -246,7 +246,7 @@ int main(int argc, const char** argv)
                         {
                             valread = read(server_socket, message, MAX_MESSAGE_SIZE);
                             remaining_length -= valread;
-                            send(client_sock, message, valread, 0);
+                            send(client_sock, message.c_str(), valread, 0);
                             memset(message, 0, MAX_MESSAGE_SIZE);
                         }
                     }
