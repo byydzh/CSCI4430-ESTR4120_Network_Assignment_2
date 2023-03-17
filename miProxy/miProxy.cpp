@@ -81,6 +81,16 @@ void out2log(string log_name, string browser_ip, string chunkname, string server
     fclose(fp);
 }
 
+int choose_bitrate(double avg_tput, int* bitrate_level){
+    int limit = round(avg_tput * 1.5);
+    int current_bitrate = 10;
+    for(int i=0;i<MAX_BITRATE_LEVEL;i++){
+        if(current_bitrate < bitrate_level[i] && bitrate_level[i] <= limit)
+            current_bitrate = bitrate_level[i];
+    }
+    return current_bitrate;
+}
+
 int main(int argc, const char** argv)
 {
     //Step0: global variables
@@ -125,7 +135,7 @@ int main(int argc, const char** argv)
 
         // add master socket to set
         FD_SET(server_socket, &readfds);
-        for (int i = 0; i < MAXCLIENTS; i++)
+        for (int i = 0; i < MAX_CLIENTS; i++)
         {
             client_sock = client_sockets[i];
             if (client_sock != 0)
@@ -176,7 +186,7 @@ int main(int argc, const char** argv)
         }
         
         // else it's some IO operation on a client socket
-        for (int i = 0; i < MAXCLIENTS; i++)
+        for (int i = 0; i < MAX_CLIENTS; i++)
         {
             client_sock = client_sockets[i];
             struct sockaddr_in client_address;
