@@ -27,6 +27,7 @@ using namespace std;
 
 int main(int argc, const char** argv)
 {
+    //Step1: check argvs
     if(argc != 6){
         printf("Usage: %s --nodns <listen-port> <www-ip> <alpha> <log>\n",argv[0]);
         return 0;
@@ -44,5 +45,107 @@ int main(int argc, const char** argv)
     else
         flag = 0;
 
-    function_1(flag, listen_port, www_ip, alpha, log);
+    //step2: get proxy_server_socket
+    struct sockaddr_in server_address;
+    server_socket = get_proxy_server_socket(&server_address, listen_port);
+    
+    //step3: get proxy_client_socket
+    
+    //step4: deal with connections
+    fd_set readfds;
+    while (1)
+    {
+        // clear the socket set
+        FD_ZERO(&readfds);
+
+        // add master socket to set
+        FD_SET(server_socket, &readfds);
+        for (int i = 0; i < MAXCLIENTS; i++)
+        {
+            client_sock = client_sockets[i];
+            if (client_sock != 0)
+            {
+                FD_SET(client_sock, &readfds);
+            }
+        }
+        // wait for an activity on one of the sockets , timeout is NULL ,
+        // so wait indefinitely
+        activity = select(FD_SETSIZE, &readfds, NULL, NULL, NULL);
+        if ((activity < 0) && (errno != EINTR))
+        {
+            perror("select error");
+        }
+
+        // If something happened on the master socket ,
+        // then its an incoming connection, call accept()
+        if (FD_ISSET(server_socket, &readfds))
+        {
+            int new_socket = accept(server_socket, (struct sockaddr *)&address,
+                                    (socklen_t *)&addrlen);
+            if (new_socket < 0)
+            {
+                perror("accept");
+                exit(EXIT_FAILURE);
+            }
+
+            // inform user of socket number - used in send and receive commands
+            printf("\n---New host connection---\n");
+            printf("socket fd is %d , ip is : %s , port : %d \n", new_socket,
+                   inet_ntoa(address.sin_addr), ntohs(address.sin_port));
+
+            // send new connection greeting message
+            // TODO: REMOVE THIS CALL TO SEND WHEN DOING THE ASSIGNMENT.
+            ssize_t send_ret = send(new_socket, message, strlen(message), 0);
+            if (send_ret != strlen(message))
+            {
+                perror("send");
+            }
+            printf("Welcome message sent successfully\n");
+            // add new socket to the array of sockets
+            for (int i = 0; i < MAXCLIENTS; i++)
+            {
+                // if position is empty
+                if (client_sockets[i] == 0)
+                {
+                    client_sockets[i] = new_socket;
+                    break;
+                }
+            }
+        }
+        // else it's some IO operation on a client socket
+        for (int i = 0; i < MAXCLIENTS; i++)
+        {
+            client_sock = client_sockets[i];
+            // Note: sd == 0 is our default here by fd 0 is actually stdin
+            if (client_sock != 0 && FD_ISSET(client_sock, &readfds))
+            {
+                // Check if it was for closing , and also read the
+                // incoming message
+                getpeername(client_sock, (struct sockaddr *)&address,
+                            (socklen_t *)&addrlen);
+                valread = read(client_sock, buffer, 1024);
+                if (valread == 0)
+                {
+                    // Somebody disconnected , get their details and print
+                    printf("\n---Host disconnected---\n");
+                    printf("Host disconnected , ip %s , port %d \n",
+                           inet_ntoa(address.sin_addr), ntohs(address.sin_port));
+                    // Close the socket and mark as 0 in list for reuse
+                    close(client_sock);
+                    client_sockets[i] = 0;
+                }
+                else
+                {
+                    //variables you need
+                    
+                    //if it's f4m request...
+                    //if it's video chunk request...
+                    //if other requests
+                           
+                }
+            }
+        }
+    }
+    return 0;
+    
 }
