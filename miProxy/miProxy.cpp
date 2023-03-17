@@ -95,6 +95,7 @@ int main(int argc, const char** argv)
 {
     //Step0: global variables
     string message;
+    printf("this is first line!\n");
     
     //Step1: check argvs
     if(argc != 6){
@@ -199,6 +200,7 @@ int main(int argc, const char** argv)
                 {
                     client_sockets[i] = new_socket;
                     client_ips[i] = inet_ntoa(server_address.sin_addr);
+                    client_throughputs_current[i] = 10;
                     printf("here new client%d\n\n\n",i);
                     break;
                 }
@@ -217,7 +219,7 @@ int main(int argc, const char** argv)
                 // Check if it was for closing , and also read the incoming message
                 //getpeername(client_sock, (struct sockaddr *)&client_address,
                             //(socklen_t *)&client_addrlen);
-                char buffer[MAX_MESSAGE_SIZE];
+                char buffer[MAX_MESSAGE_SIZE+999];
                 int valread = read(client_sock, buffer, MAX_MESSAGE_SIZE);
                 printf("here read c buffer\n%s\n\n",buffer);
                 if (valread == 0)
@@ -229,7 +231,7 @@ int main(int argc, const char** argv)
                     // Close the socket and mark as 0 in list for reuse
                     close(client_sock);
                     client_sockets[i] = 0;
-                    client_throughputs_current[i] = 0;
+                    client_throughputs_current[i] = 10;
                 }
                 else
                 {
@@ -419,13 +421,24 @@ int main(int argc, const char** argv)
                         //Then receive response from server, and send back to client
                         message.erase();
                         memset(buffer, 0, MAX_MESSAGE_SIZE);
-                        valread = read(proxy_client_socket, buffer, MAX_MESSAGE_SIZE);
-                        buffer[valread] = '\0';//printf("here\n%s\n\n",buffer);
-                        message = buffer;
-                        memset(buffer, 0, MAX_MESSAGE_SIZE);
-                        message[valread] = '\0';//printf("here\n%s\n\n",message.c_str());
+                        char buffer_int[MAX_MESSAGE_SIZE];
+                        valread = fread(proxy_client_socket, buffer_int, MAX_MESSAGE_SIZE);printf("\n\nhere is 1st read:\n");                        //printf("\n%s\n%d\n",buffer,);
+                        message.erase();
+                        for(int h; h<valread;h++){
+                            message.push_back(char(buffer_int[h]));
+                        }printf("\n%d\n",(int)message.size());
+                        //valread = (int)strlen(buffer);
+                        //buffer[valread] = '\0';//printf("here\n%s\n\n",buffer);
+                        //message = buffer;
+                        printf("\nlength of message: %d\nvalread: %d\n", (int)message.size(), valread);
+                        //memset(buffer, 0, MAX_MESSAGE_SIZE);
+                        //message[valread] = '\0';//printf("here\n%s\n\n",message.c_str());
                         //send the response to client
                         send(client_sock, message.c_str(), valread, 0);printf("\n%s\n",message.c_str());
+                        FILE *fp;
+                        fp = fopen("my.txt", "a");
+                        fputs( message.c_str(),fp );
+                        fclose(fp);
                         
                         //Locally parse for header length
                         size_t header_end = message.find("\r\n\r\n");
@@ -454,13 +467,16 @@ int main(int argc, const char** argv)
                         
                         // receive and send back the remaining part
                         int remaining_length = content_length + header_length - valread;
+                        printf("\nremaining_length: %d\n",remaining_length);
                         while(remaining_length > 0)
                         {
-                            printf("\n%s\nlen: %d\n",message.c_str(), remaining_length);
                             memset(buffer, 0, MAX_MESSAGE_SIZE);
-                            valread = read(proxy_client_socket, buffer, MAX_MESSAGE_SIZE);
+                            printf("\nremaining_length111: %d\n",remaining_length);
+                            valread = read(proxy_client_socket, buffer, MAX_MESSAGE_SIZE-10000);
+                            printf("\nremaining_length111: %d\n",remaining_length);
                             buffer[valread] = '\0';
                             remaining_length -= valread;
+                            printf("\n%s\nlen: %d\n",buffer, remaining_length);
                             send(client_sock, buffer, valread, 0);
                             memset(buffer, 0, MAX_MESSAGE_SIZE);
                         }
