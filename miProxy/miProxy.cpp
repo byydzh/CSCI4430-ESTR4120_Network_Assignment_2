@@ -111,7 +111,7 @@ int main(int argc, const char** argv)
     //step3: get client_sockets
     int client_sock;
     int client_sockets[MAX_CLIENTS] = {0};
-    int client_throughputs_current[MAX_CLIENTS] = {0};
+    double client_throughputs_current[MAX_CLIENTS] = {0.0};
     string client_ips[MAX_CLIENTS];
     
     //step4: deal with connections
