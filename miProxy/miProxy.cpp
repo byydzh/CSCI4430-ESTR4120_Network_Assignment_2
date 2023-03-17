@@ -82,7 +82,7 @@ void out2log(string log_name, string browser_ip, string chunkname, string server
 }
 
 int choose_bitrate(double avg_tput, int* bitrate_level){
-    int limit = round(avg_tput * 1.5);
+    double limit = (avg_tput * 1.5);
     int current_bitrate = 10;
     for(int i=0;i<MAX_BITRATE_LEVEL;i++){
         if(current_bitrate < bitrate_level[i] && bitrate_level[i] <= limit)
@@ -117,6 +117,7 @@ int main(int argc, const char** argv)
     //step2: get server_socket
     int server_socket;
     struct sockaddr_in server_address;
+    int server_addrlen = sizeof(sockaddr_in);
     server_socket = get_server_socket(&server_address, listen_port);
     
     //step3: get client_sockets
@@ -145,7 +146,7 @@ int main(int argc, const char** argv)
         }
         // wait for an activity on one of the sockets , timeout is NULL ,
         // so wait indefinitely
-        activity = select(FD_SETSIZE, &readfds, NULL, NULL, NULL);
+        int activity = select(FD_SETSIZE, &readfds, NULL, NULL, NULL);
         if ((activity < 0) && (errno != EINTR))
         {
             perror("select error");
@@ -155,7 +156,7 @@ int main(int argc, const char** argv)
         if (FD_ISSET(server_socket, &readfds))
         {
             int new_socket = accept(server_socket, (struct sockaddr *)&server_address,
-                                    (socklen_t *)&(sizeof(server_address)));
+                                    (socklen_t *)&server_addrlen);
             if (new_socket < 0)
             {
                 perror("accept");
@@ -179,7 +180,7 @@ int main(int argc, const char** argv)
                 if (client_sockets[i] == 0)
                 {
                     client_sockets[i] = new_socket;
-                    strcpy(client_ips[i], inet_ntoa(server_address.sin_addr));
+                    client_ips[i] = inet_ntoa(server_address.sin_addr);
                     break;
                 }
             }
@@ -197,7 +198,8 @@ int main(int argc, const char** argv)
                 // Check if it was for closing , and also read the incoming message
                 getpeername(client_sock, (struct sockaddr *)&client_address,
                             (socklen_t *)&client_addrlen);
-                int valread = read(client_sock, message, MAX_MESSAGE_SIZE);
+                char buffer[MAX_MESSAGE_SIZE];
+                int valread = read(client_sock, buffer, MAX_MESSAGE_SIZE);
                 if (valread == 0)
                 {
                     // Somebody disconnected , get their details and print
@@ -207,17 +209,18 @@ int main(int argc, const char** argv)
                     // Close the socket and mark as 0 in list for reuse
                     close(client_sock);
                     client_sockets[i] = 0;
-                    client_throughput_current[i] = 0;
+                    client_throughputs_current[i] = 0;
                 }
                 else
                 {
                     //variables you need
-                    message[valread] = '\0';
+                    buffer[valread] = '\0';
+                    message = buffer;
                     size_t loc;
                     //if it's f4m request...
                     if ((loc = message.find(".f4m")) != message.npos){
                         string message_nolist = message, message_buffer;
-                        char buffer[MAX_MESSAGE_SIZE];
+                        memset(buffer, 0, MAX_MESSAGE_SIZE);
                         message_nolist.insert(loc, "_nolist");
                         
                         //_nolist.f4m process
@@ -231,8 +234,8 @@ int main(int argc, const char** argv)
                         }
                         buffer[valread] = '\0';
                         message_buffer = buffer;
-                        if (send(client_socket, buffer, valread, 0) < 0){
-                            perror("Error: send to client %d failed\n", i);
+                        if (send(client_sock, buffer, valread, 0) < 0){
+                            perror("Error: send to client failed\n");
                             exit(EXIT_FAILURE);
                         }
                         
@@ -240,7 +243,7 @@ int main(int argc, const char** argv)
                         size_t header_end = message_buffer.find("\r\n\r\n");
                         if(header_end == message_buffer.npos)
                         {
-                            perror("Error: fail to find header_end");
+                            perror("Error: fail to find header_end_1");
                             exit(EXIT_FAILURE);
                         }
                         int header_length = static_cast<int>(header_end) +4;
@@ -252,7 +255,7 @@ int main(int argc, const char** argv)
                             perror("Error: fail to find content length info");
                             exit(EXIT_FAILURE);
                         }
-                        size_t digit_start = content_length_info + "Content-Length: ".size();
+                        size_t digit_start = content_length_info + 16;
                         size_t digit_end;
                         for(digit_end = digit_start; isdigit(message[digit_end]); digit_end++)
                         {
@@ -286,7 +289,7 @@ int main(int argc, const char** argv)
                             size_t bitrate_info = message_buffer.find("bitrate: \"");
                             if(bitrate_info == message_buffer.npos)
                                 break;
-                            digit_start = bitrate_info + "bitrate: \"".size();
+                            digit_start = bitrate_info + 10;
                             for(digit_end = digit_start; isdigit(message[digit_end]); digit_end++);
                             int bitrate = stoi(message_buffer.substr(digit_start, digit_end-digit_start));
                             
@@ -316,7 +319,7 @@ int main(int argc, const char** argv)
                         start_position++;
                         //get the position of chunk_end
                         size_t chunk_end_position = loc;
-                        while(message[chunk_end_position] != " ")
+                        while(message[chunk_end_position] != ' ')
                         {
                             chunk_end_position++;
                         }
@@ -331,10 +334,15 @@ int main(int argc, const char** argv)
                         send(server_socket, message.c_str(), message.size(), 0);
                         
                         //Then ready to receive response from server
-                        memset(message, 0, MAX_MESSAGE_SIZE);
+                        message.erase();
                         double total_time = 0.0;
-                        auto start_time = high_resolution_clock::now();
-                        valread = read(server_socket, message, MAX_MESSAGE_SIZE);
+                        auto start_time = chrono::high_resolution_clock::now();
+                        memset(buffer, 0, MAX_MESSAGE_SIZE);
+                        valread = read(server_socket, buffer, MAX_MESSAGE_SIZE);
+                        buffer[valread] = '\0';
+                        message = buffer;
+                        memset(buffer, 0, MAX_MESSAGE_SIZE);
+
                         message[valread] = '\0';
                         //send the response to client
                         send(client_sock, message.c_str(), valread, 0);
@@ -343,7 +351,7 @@ int main(int argc, const char** argv)
                         size_t header_end = message.find("\r\n\r\n");
                         if(header_end == message.npos)
                         {
-                            perror("Error: fail to find header_end");
+                            perror("Error: fail to find header_end_2");
                             exit(EXIT_FAILURE);
                         }
                         int header_length = static_cast<int>(header_end) +4;
@@ -355,7 +363,7 @@ int main(int argc, const char** argv)
                             perror("Error: fail to find content length info");
                             exit(EXIT_FAILURE);
                         }
-                        size_t digit_start = content_length_info + "Content-Length: ".size();
+                        size_t digit_start = content_length_info + 16;
                         size_t digit_end;
                         for(digit_end = digit_start; isdigit(message[digit_end]); digit_end++)
                         {
@@ -367,14 +375,14 @@ int main(int argc, const char** argv)
                         int remaining_length = content_length + header_length - valread;
                         while(remaining_length > 0)
                         {
-                            valread = read(server_socket, message, MAX_MESSAGE_SIZE);
+                            valread = read(server_socket, buffer, MAX_MESSAGE_SIZE);
                             remaining_length -= valread;
-                            send(client_sock, message.c_str(), valread, 0);
-                            memset(message, 0, MAX_MESSAGE_SIZE);
+                            send(client_sock, buffer, valread, 0);
+                            memset(buffer, 0, MAX_MESSAGE_SIZE);
                         }
                         
                         //calculate throughput and generate log
-                        total_time = duration<double>(high_resolution_clock::now() - start_time).count();
+                        total_time = chrono::duration<double>(chrono::high_resolution_clock::now() - start_time).count();
                         double throughput_new = (content_length + header_length)*8 / (total_time*1000);
                         client_throughputs_current[i] = alpha * throughput_new + (1-alpha) * client_throughputs_current[i];
                         out2log(log, client_ips[i], chunk_name, www_ip, total_time, throughput_new, client_throughputs_current[i], new_bitrate, 0);
@@ -386,8 +394,12 @@ int main(int argc, const char** argv)
                         send(server_socket, message.c_str(), valread, 0);
                         
                         //Then receive response from server, and send back to client
-                        memset(message, 0, MAX_MESSAGE_SIZE);
-                        valread = read(server_socket, message, MAX_MESSAGE_SIZE);
+                        message.erase();
+                        memset(buffer, 0, MAX_MESSAGE_SIZE);
+                        valread = read(server_socket, buffer, MAX_MESSAGE_SIZE);
+                        buffer[valread] = '\0';
+                        message = buffer;
+                        memset(buffer, 0, MAX_MESSAGE_SIZE);
                         message[valread] = '\0';
                         //send the response to client
                         send(client_sock, message.c_str(), valread, 0);
@@ -396,7 +408,7 @@ int main(int argc, const char** argv)
                         size_t header_end = message.find("\r\n\r\n");
                         if(header_end == message.npos)
                         {
-                            perror("Error: fail to find header_end");
+                            perror("Error: fail to find header_end_3");
                             exit(EXIT_FAILURE);
                         }
                         int header_length = static_cast<int>(header_end) +4;
@@ -408,7 +420,7 @@ int main(int argc, const char** argv)
                             perror("Error: fail to find content length info");
                             exit(EXIT_FAILURE);
                         }
-                        size_t digit_start = content_length_info + "Content-Length: ".size();
+                        size_t digit_start = content_length_info + 16;
                         size_t digit_end;
                         for(digit_end = digit_start; isdigit(message[digit_end]); digit_end++)
                         {
@@ -420,10 +432,10 @@ int main(int argc, const char** argv)
                         int remaining_length = content_length + header_length - valread;
                         while(remaining_length > 0)
                         {
-                            valread = read(server_socket, message, MAX_MESSAGE_SIZE);
+                            valread = read(server_socket, buffer, MAX_MESSAGE_SIZE);
                             remaining_length -= valread;
-                            send(client_sock, message.c_str(), valread, 0);
-                            memset(message, 0, MAX_MESSAGE_SIZE);
+                            send(client_sock, buffer, valread, 0);
+                            memset(buffer, 0, MAX_MESSAGE_SIZE);
                         }
                     }
                 }
