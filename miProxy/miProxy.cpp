@@ -67,6 +67,9 @@ int get_server_socket(struct sockaddr_in *address, int listen_port) {
 
 int main(int argc, const char** argv)
 {
+    //Step0: global variables
+    string message;
+    
     //Step1: check argvs
     if(argc != 6){
         printf("Usage: %s --nodns <listen-port> <www-ip> <alpha> <log>\n",argv[0]);
@@ -85,16 +88,16 @@ int main(int argc, const char** argv)
     else
         flag = 0;
 
-    //step2: get proxy_server_socket
+    //step2: get server_socket
     int server_socket;
     struct sockaddr_in server_address;
     server_socket = get_server_socket(&server_address, listen_port);
     
-    //step3: get proxy_client_socket
+    //step3: get client_sockets
     int client_sock;
     int client_sockets[MAX_CLIENTS] = {0};
+    string client_ips[MAX_CLIENTS];
     
-
     //step4: deal with connections
     fd_set readfds;
     while (1)
@@ -120,12 +123,11 @@ int main(int argc, const char** argv)
             perror("select error");
         }
 
-        // If something happened on the master socket ,
-        // then its an incoming connection, call accept()
+        // If something happened on the server socket, then its an incoming connection, call accept()
         if (FD_ISSET(server_socket, &readfds))
         {
-            int new_socket = accept(server_socket, (struct sockaddr *)&address,
-                                    (socklen_t *)&addrlen);
+            int new_socket = accept(server_socket, (struct sockaddr *)&server_address,
+                                    (socklen_t *)&(sizeof(server_address)));
             if (new_socket < 0)
             {
                 perror("accept");
@@ -133,18 +135,15 @@ int main(int argc, const char** argv)
             }
 
             // inform user of socket number - used in send and receive commands
-            printf("\n---New host connection---\n");
+            printf("\n---New connection---\n");
             printf("socket fd is %d , ip is : %s , port : %d \n", new_socket,
-                   inet_ntoa(address.sin_addr), ntohs(address.sin_port));
+                   inet_ntoa(server_address.sin_addr), ntohs(server_address.sin_port));
 
             // send new connection greeting message
             // TODO: REMOVE THIS CALL TO SEND WHEN DOING THE ASSIGNMENT.
-            ssize_t send_ret = send(new_socket, message, strlen(message), 0);
-            if (send_ret != strlen(message))
-            {
-                perror("send");
-            }
-            printf("Welcome message sent successfully\n");
+            //ssize_t send_ret = send(new_socket, message, strlen(message), 0);
+            //printf("Welcome message sent successfully\n");
+            
             // add new socket to the array of sockets
             for (int i = 0; i < MAXCLIENTS; i++)
             {
@@ -152,10 +151,12 @@ int main(int argc, const char** argv)
                 if (client_sockets[i] == 0)
                 {
                     client_sockets[i] = new_socket;
+                    strcpy(client_ips[i], inet_ntoa(server_address.sin_addr));
                     break;
                 }
             }
         }
+        
         // else it's some IO operation on a client socket
         for (int i = 0; i < MAXCLIENTS; i++)
         {
