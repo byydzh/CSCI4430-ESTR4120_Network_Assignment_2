@@ -73,7 +73,7 @@ void out2log(string log_name, string browser_ip, string chunkname, string server
     if(clear)
         fp = fopen(log_name.c_str(), "w+");
     else
-        fp = fopen(log_name.c_str(), a);
+        fp = fopen(log_name.c_str(), "a");
     fprintf(fp, "%s %s %s %f %f %f %d\n",
             browser_ip.c_str(), chunkname.c_str(), server_ip.c_str(), 
             duration, tput, avg_tput, bitrate);
