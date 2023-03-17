@@ -201,8 +201,21 @@ int main(int argc, const char** argv)
                 {
                     //variables you need
                     message[valread] = '\0';
+                    size_t loc;
                     //if it's f4m request...
                     //if it's video chunk request...
+                    else if( (loc = message.find("Seg")) != message.npos)
+                    {
+                        //get the position of bitrate
+                        size_t end_position = loc - 1;
+                        size_t start_position = end_position;
+                        while(start_position >= 0 && isdigit(message[start_position]))
+                        {
+                            start_position--;
+                        }
+                        start_position++;
+                        message.replace(start_position, end_position-start_position, to_string(new_bitrate))
+                    }
                     //if other requests, directly send
                     else
                     {
@@ -218,7 +231,7 @@ int main(int argc, const char** argv)
                         
                         //Locally parse for header length
                         size_t header_end = message.find("\r\n\r\n");
-                        if(header_end == header.npos)
+                        if(header_end == message.npos)
                         {
                             perror("Error: fail to find header_end");
                             exit(EXIT_FAILURE);
@@ -227,7 +240,7 @@ int main(int argc, const char** argv)
                         
                         //Locally parse for content length
                         size_t content_length_info = message.find("Content-Length: ");
-                        if(content_length_info == header.npos)
+                        if(content_length_info == message.npos)
                         {
                             perror("Error: fail to find content length info");
                             exit(EXIT_FAILURE);
