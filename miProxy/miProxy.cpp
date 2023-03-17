@@ -200,11 +200,56 @@ int main(int argc, const char** argv)
                 else
                 {
                     //variables you need
-                    
+                    message[valread] = '\0';
                     //if it's f4m request...
                     //if it's video chunk request...
-                    //if other requests
-                           
+                    //if other requests, directly send
+                    else
+                    {
+                        //first send the request to server
+                        send(server_socket, message, valread, 0);
+                        
+                        //Then receive response from server, and send back to client
+                        memset(message, 0, MAX_MESSAGE_SIZE);
+                        valread = read(server_socket, message, MAX_MESSAGE_SIZE);
+                        message[valread] = '\0';
+                        //send the response to client
+                        send(client_sock, message, valread, 0);
+                        
+                        //Locally parse for header length
+                        size_t header_end = message.find("\r\n\r\n");
+                        if(header_end == header.npos)
+                        {
+                            perror("Error: fail to find header_end");
+                            exit(EXIT_FAILURE);
+                        }
+                        int header_length = static_cast<int>(header_end) +4;
+                        
+                        //Locally parse for content length
+                        size_t content_length_info = message.find("Content-Length: ");
+                        if(content_length_info == header.npos)
+                        {
+                            perror("Error: fail to find content length info");
+                            exit(EXIT_FAILURE);
+                        }
+                        size_t digit_start = content_length_info + "Content-Length: ".size();
+                        size_t digit_end;
+                        for(digit_end = digit_start; isdigit(message[digit_end]); digit_end++)
+                        {
+                            ;
+                        }
+                        int content_length = stoi(message.substr(digit_start, digit_end-digit_start));
+                        
+                        // receive and send back the remaining part
+                        int remaining_length = content_length + header_length - valread;
+                        while(remaining_length > 0)
+                        {
+                            valread = read(server_socket, message, MAX_MESSAGE_SIZE);
+                            remaining_length -= valread;
+                            send(client_sock, message, valread, 0);
+                            memset(message, 0, MAX_MESSAGE_SIZE);
+                        }
+                    }
                 }
             }
         }
