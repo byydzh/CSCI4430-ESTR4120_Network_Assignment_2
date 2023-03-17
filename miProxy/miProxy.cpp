@@ -44,8 +44,9 @@ int main(int argc, const char** argv)
         flag = 2;
     else
         flag = 0;
-
+    
     //step2: get proxy_server_socket
+    int server_socket;
     struct sockaddr_in server_address;
     server_socket = get_proxy_server_socket(&server_address, listen_port);
     
@@ -58,7 +59,7 @@ int main(int argc, const char** argv)
         // clear the socket set
         FD_ZERO(&readfds);
 
-        // add master socket to set
+        // add server socket to set
         FD_SET(server_socket, &readfds);
         for (int i = 0; i < MAXCLIENTS; i++)
         {
