@@ -20,7 +20,7 @@
 
 
 #define MAX_CLIENTS 10
-#define MAX_MESSAGE_SIZE 10000
+#define MAX_MESSAGE_SIZE 20000
 #define MAX_REQUEST_LINE_LENGTH 1024
 #define MAX_BITRATE_LEVEL 10
 
@@ -126,31 +126,49 @@ int main(int argc, const char** argv)
     double client_throughputs_current[MAX_CLIENTS] = {0.0};
     string client_ips[MAX_CLIENTS];
     int bitrate_level[MAX_BITRATE_LEVEL] = {0};
+     // create proxy client socket
+     int proxy_client_socket;
+     struct sockaddr_in client_addr;
+    if((proxy_client_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0){
+        perror("socket creation failed");
+        exit(1);
+    }
+    
+    // connect to the video server
+    struct hostent *server = gethostbyname(www_ip.c_str());
+    memset(&client_addr, 0, sizeof(client_addr));
+    client_addr.sin_family = AF_INET;
+    client_addr.sin_addr.s_addr = * (unsigned long *) server->h_addr_list[0];
+    client_addr.sin_port = htons(80);
+    if(connect(proxy_client_socket, (struct sockaddr *)&client_addr, sizeof(client_addr)) < 0){
+        perror("connection failed");
+        exit(1);
+    }
     
     //step4: deal with connections
     fd_set readfds;
     while (1)
     {
         // clear the socket set
-        FD_ZERO(&readfds);
+        FD_ZERO(&readfds);printf("hehe1\n");
 
         // add master socket to set
-        FD_SET(server_socket, &readfds);
+        FD_SET(server_socket, &readfds);printf("hehe2.1\n");
         for (int i = 0; i < MAX_CLIENTS; i++)
         {
             client_sock = client_sockets[i];
             if (client_sock != 0)
             {
-                FD_SET(client_sock, &readfds);
+                FD_SET(client_sock, &readfds);printf("yes! %d\n",i);
             }
-        }
+        }printf("hehe2.2\n");
         // wait for an activity on one of the sockets , timeout is NULL ,
         // so wait indefinitely
-        int activity = select(FD_SETSIZE, &readfds, NULL, NULL, NULL);
+        int activity = select(FD_SETSIZE, &readfds, NULL, NULL, NULL);printf("hehe2.3\n");
         if ((activity < 0) && (errno != EINTR))
         {
             perror("select error");
-        }
+        }printf("hehe2\n");
 
         // If something happened on the server socket, then its an incoming connection, call accept()
         if (FD_ISSET(server_socket, &readfds))
@@ -181,10 +199,11 @@ int main(int argc, const char** argv)
                 {
                     client_sockets[i] = new_socket;
                     client_ips[i] = inet_ntoa(server_address.sin_addr);
+                    printf("here new client%d\n\n\n",i);
                     break;
                 }
             }
-        }
+        }printf("hehe3\n");
         
         // else it's some IO operation on a client socket
         for (int i = 0; i < MAX_CLIENTS; i++)
@@ -196,16 +215,17 @@ int main(int argc, const char** argv)
             if (client_sock != 0 && FD_ISSET(client_sock, &readfds))
             {
                 // Check if it was for closing , and also read the incoming message
-                getpeername(client_sock, (struct sockaddr *)&client_address,
-                            (socklen_t *)&client_addrlen);
+                //getpeername(client_sock, (struct sockaddr *)&client_address,
+                            //(socklen_t *)&client_addrlen);
                 char buffer[MAX_MESSAGE_SIZE];
                 int valread = read(client_sock, buffer, MAX_MESSAGE_SIZE);
+                printf("here read c buffer\n%s\n\n",buffer);
                 if (valread == 0)
                 {
                     // Somebody disconnected , get their details and print
                     printf("\n---Client %d disconnected---\n", i);
-                    printf("Host disconnected , ip %s , port %d \n",
-                           inet_ntoa(client_address.sin_addr), ntohs(client_address.sin_port));
+                    //printf("Host disconnected , ip %s , port %d \n",
+                           //inet_ntoa(client_address.sin_addr), ntohs(client_address.sin_port));
                     // Close the socket and mark as 0 in list for reuse
                     close(client_sock);
                     client_sockets[i] = 0;
@@ -219,16 +239,17 @@ int main(int argc, const char** argv)
                     size_t loc;
                     //if it's f4m request...
                     if ((loc = message.find(".f4m")) != message.npos){
+                        printf("here we want to deal with f4m\n\n\n");
                         string message_nolist = message, message_buffer;
                         memset(buffer, 0, MAX_MESSAGE_SIZE);
                         message_nolist.insert(loc, "_nolist");
                         
                         //_nolist.f4m process
-                        if (send(server_socket, message_nolist.c_str(), message_nolist.size(), 0) < 0){
+                        if (send(proxy_client_socket, message_nolist.c_str(), message_nolist.size(), 0) < 0){
                             perror("Error: send to server failed\n");
                             exit(EXIT_FAILURE);
                         }
-                        valread = read(server_socket, buffer, MAX_MESSAGE_SIZE);
+                        valread = read(proxy_client_socket, buffer, MAX_MESSAGE_SIZE);
                         if (valread == 0){
                             printf("---Server disconnected---\n");
                         }
@@ -267,7 +288,7 @@ int main(int argc, const char** argv)
                         int remaining_length = content_length + header_length - valread;
                         while(remaining_length > 0)
                         {
-                            valread = read(server_socket, buffer, MAX_MESSAGE_SIZE);
+                            valread = read(proxy_client_socket, buffer, MAX_MESSAGE_SIZE);
                             remaining_length -= valread;
                             send(client_sock, buffer, valread, 0);
                             memset(buffer, 0, MAX_MESSAGE_SIZE);
@@ -275,10 +296,10 @@ int main(int argc, const char** argv)
 
 
                         // original .f4m process
-                        if (send(server_socket, message.c_str(), message.size(), 0) < 0)
+                        if (send(proxy_client_socket, message.c_str(), message.size(), 0) < 0)
                             printf("send to server failed\n");
 
-                        valread = read(server_socket, buffer, MAX_MESSAGE_SIZE);
+                        valread = read(proxy_client_socket, buffer, MAX_MESSAGE_SIZE);
                         if (valread == 0){
                             printf("---Server disconnected---\n");
                         }
@@ -301,7 +322,7 @@ int main(int argc, const char** argv)
                             }
                         }
                         while(remaining_length > 0){
-                            valread = read(server_socket, buffer, MAX_MESSAGE_SIZE);
+                            valread = read(proxy_client_socket, buffer, MAX_MESSAGE_SIZE);
                             remaining_length -= valread;
                             memset(buffer, 0, MAX_MESSAGE_SIZE);
                         }
@@ -309,6 +330,7 @@ int main(int argc, const char** argv)
                     //if it's video chunk request...
                     else if( (loc = message.find("Seg")) != message.npos)
                     {
+                        printf("here we want to deal with video trunk\n\n\n");
                         //get the position of bitrate
                         size_t end_position = loc - 1;
                         size_t start_position = end_position;
@@ -331,14 +353,14 @@ int main(int argc, const char** argv)
                         //modify request
                         message.replace(start_position, end_position-start_position, to_string(new_bitrate));
                         //send the adapted request to server
-                        send(server_socket, message.c_str(), message.size(), 0);
+                        send(proxy_client_socket, message.c_str(), message.size(), 0);
                         
                         //Then ready to receive response from server
                         message.erase();
                         double total_time = 0.0;
                         auto start_time = chrono::high_resolution_clock::now();
                         memset(buffer, 0, MAX_MESSAGE_SIZE);
-                        valread = read(server_socket, buffer, MAX_MESSAGE_SIZE);
+                        valread = read(proxy_client_socket, buffer, MAX_MESSAGE_SIZE);
                         buffer[valread] = '\0';
                         message = buffer;
                         memset(buffer, 0, MAX_MESSAGE_SIZE);
@@ -375,7 +397,7 @@ int main(int argc, const char** argv)
                         int remaining_length = content_length + header_length - valread;
                         while(remaining_length > 0)
                         {
-                            valread = read(server_socket, buffer, MAX_MESSAGE_SIZE);
+                            valread = read(proxy_client_socket, buffer, MAX_MESSAGE_SIZE);
                             remaining_length -= valread;
                             send(client_sock, buffer, valread, 0);
                             memset(buffer, 0, MAX_MESSAGE_SIZE);
@@ -390,19 +412,20 @@ int main(int argc, const char** argv)
                     //if other requests, directly send
                     else
                     {
+                        printf("here we want to other requests\n\n");
                         //first send the request to server
-                        send(server_socket, message.c_str(), valread, 0);
+                        send(proxy_client_socket, message.c_str(), valread, 0);//printf("here send s buffer\n%d\n\n",ang);
                         
                         //Then receive response from server, and send back to client
                         message.erase();
                         memset(buffer, 0, MAX_MESSAGE_SIZE);
-                        valread = read(server_socket, buffer, MAX_MESSAGE_SIZE);
-                        buffer[valread] = '\0';
+                        valread = read(proxy_client_socket, buffer, MAX_MESSAGE_SIZE);
+                        buffer[valread] = '\0';//printf("here\n%s\n\n",buffer);
                         message = buffer;
                         memset(buffer, 0, MAX_MESSAGE_SIZE);
-                        message[valread] = '\0';
+                        message[valread] = '\0';//printf("here\n%s\n\n",message.c_str());
                         //send the response to client
-                        send(client_sock, message.c_str(), valread, 0);
+                        send(client_sock, message.c_str(), valread, 0);printf("\n%s\n",message.c_str());
                         
                         //Locally parse for header length
                         size_t header_end = message.find("\r\n\r\n");
@@ -427,16 +450,21 @@ int main(int argc, const char** argv)
                             ;
                         }
                         int content_length = stoi(message.substr(digit_start, digit_end-digit_start));
+                        printf("\ncontent_len: %d\n",content_length);
                         
                         // receive and send back the remaining part
                         int remaining_length = content_length + header_length - valread;
                         while(remaining_length > 0)
                         {
-                            valread = read(server_socket, buffer, MAX_MESSAGE_SIZE);
+                            printf("\n%s\nlen: %d\n",message.c_str(), remaining_length);
+                            memset(buffer, 0, MAX_MESSAGE_SIZE);
+                            valread = read(proxy_client_socket, buffer, MAX_MESSAGE_SIZE);
+                            buffer[valread] = '\0';
                             remaining_length -= valread;
                             send(client_sock, buffer, valread, 0);
                             memset(buffer, 0, MAX_MESSAGE_SIZE);
                         }
+                        printf("here we end other requests\n\n");
                     }
                 }
             }
