@@ -20,7 +20,7 @@
 
 
 #define MAX_CLIENTS 10
-#define MAX_BUFFER_SIZE 10000
+#define MAX_MESSAGE_SIZE 10000
 #define MAX_REQUEST_LINE_LENGTH 1024
 
 using namespace std;
@@ -111,6 +111,7 @@ int main(int argc, const char** argv)
     //step3: get client_sockets
     int client_sock;
     int client_sockets[MAX_CLIENTS] = {0};
+    int client_throughputs_current[MAX_CLIENTS] = {0};
     string client_ips[MAX_CLIENTS];
     
     //step4: deal with connections
@@ -176,23 +177,25 @@ int main(int argc, const char** argv)
         for (int i = 0; i < MAXCLIENTS; i++)
         {
             client_sock = client_sockets[i];
+            struct sockaddr_in client_address;
+            int client_addrlen = sizeof(sockaddr_in);
             // Note: sd == 0 is our default here by fd 0 is actually stdin
             if (client_sock != 0 && FD_ISSET(client_sock, &readfds))
             {
-                // Check if it was for closing , and also read the
-                // incoming message
-                getpeername(client_sock, (struct sockaddr *)&address,
-                            (socklen_t *)&addrlen);
-                valread = read(client_sock, buffer, 1024);
+                // Check if it was for closing , and also read the incoming message
+                getpeername(client_sock, (struct sockaddr *)&client_address,
+                            (socklen_t *)&client_addrlen);
+                valread = read(client_sock, message, MAX_MESSAGE_SIZE);
                 if (valread == 0)
                 {
                     // Somebody disconnected , get their details and print
-                    printf("\n---Host disconnected---\n");
+                    printf("\n---Client %d disconnected---\n", i);
                     printf("Host disconnected , ip %s , port %d \n",
-                           inet_ntoa(address.sin_addr), ntohs(address.sin_port));
+                           inet_ntoa(client_address.sin_addr), ntohs(client_address.sin_port));
                     // Close the socket and mark as 0 in list for reuse
                     close(client_sock);
                     client_sockets[i] = 0;
+                    client_throughput_current[i] = 0;
                 }
                 else
                 {
