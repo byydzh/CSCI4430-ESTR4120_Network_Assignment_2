@@ -161,7 +161,7 @@ int main(int argc, const char** argv)
             //printf("Welcome message sent successfully\n");
             
             // add new socket to the array of sockets
-            for (int i = 0; i < MAXCLIENTS; i++)
+            for (int i = 0; i < MAX_CLIENTS; i++)
             {
                 // if position is empty
                 if (client_sockets[i] == 0)
@@ -185,7 +185,7 @@ int main(int argc, const char** argv)
                 // Check if it was for closing , and also read the incoming message
                 getpeername(client_sock, (struct sockaddr *)&client_address,
                             (socklen_t *)&client_addrlen);
-                valread = read(client_sock, message, MAX_MESSAGE_SIZE);
+                int valread = read(client_sock, message, MAX_MESSAGE_SIZE);
                 if (valread == 0)
                 {
                     // Somebody disconnected , get their details and print
