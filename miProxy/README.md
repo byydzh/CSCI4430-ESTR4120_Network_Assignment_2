@@ -10,7 +10,7 @@ For assignment 2, we have **8 test cases** in total. Each test case will test th
 | 4         | 10     | 10               |Test bandwidth change from 10mbps to 1mbps                   |
 | 5         | 15     | 15               |Test sudden bandwidth drop to less than 100kbps (50kbs)      |
 | 6         | 15     | 15               |Test two browser case                                        |
-| 7         | 15     | 15               |Test two browser case, bandwidths sum up to 1000kbps         |
+| 7         | 15     | 0                |Test two browser case, bandwidths sum up to 1000kbps         |
 | 8         | 15     | 15               |Test two browser case, bandwidth changes to 1mbps in 25 sec, then changes back to 10mbps in 60 sec |
 
  To avoid unexpected error, please do not update the software in the published virtual machine and keep the environment consistent with the original published version.
