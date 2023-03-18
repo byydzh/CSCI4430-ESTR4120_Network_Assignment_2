@@ -2,16 +2,16 @@
 
 For assignment 2, we have **8 test cases** in total. Each test case will test the performance of the code under a specific condition. The basic setting for each test case is as follows:
 
-| Test Case | Points | Condition                                                    |
-| --------- | ------ | ------------------------------------------------------------ |
-| 1         | 10     | Test high bandwidth with low alpha value (slow bitrate increasing) |
-| 2         | 10     | Test high bandwidth with large alpha value (fast bitrate increasing) |
-| 3         | 10     | Test 0.5mbps bandwidth (middle bandwidth)                    |
-| 4         | 10     | Test bandwidth change from 10mbps to 1mbps                   |
-| 5         | 15     | Test sudden bandwidth drop to less than 100kbps (50kbs)      |
-| 6         | 15     | Test two browser case                                        |
-| 7         | 15     | Test two browser case, bandwidths sum up to 1000kbps         |
-| 8         | 15     | Test two browser case, bandwidth changes to 1mbps in 25 sec, then changes back to 10mbps in 60 sec |
+| Test Case | Points | Autograder_grade | Condition                                                    |
+| --------- | ------ | ---------------- | ------------------------------------------------------------ |
+| 1         | 10     | 10               |Test high bandwidth with low alpha value (slow bitrate increasing) |
+| 2         | 10     | 10               |Test high bandwidth with large alpha value (fast bitrate increasing) |
+| 3         | 10     | 10               |Test 0.5mbps bandwidth (middle bandwidth)                    |
+| 4         | 10     | 10               |Test bandwidth change from 10mbps to 1mbps                   |
+| 5         | 15     | 15               |Test sudden bandwidth drop to less than 100kbps (50kbs)      |
+| 6         | 15     | 15               |Test two browser case                                        |
+| 7         | 15     | 15               |Test two browser case, bandwidths sum up to 1000kbps         |
+| 8         | 15     | 15               |Test two browser case, bandwidth changes to 1mbps in 25 sec, then changes back to 10mbps in 60 sec |
 
  To avoid unexpected error, please do not update the software in the published virtual machine and keep the environment consistent with the original published version.
 
