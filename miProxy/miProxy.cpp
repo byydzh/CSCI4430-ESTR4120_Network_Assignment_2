@@ -20,7 +20,7 @@
 
 
 #define MAX_CLIENTS 10
-#define MAX_MESSAGE_SIZE 20000
+#define MAX_MESSAGE_SIZE 3000
 #define MAX_REQUEST_LINE_LENGTH 1024
 #define MAX_BITRATE_LEVEL 10
 
@@ -30,7 +30,7 @@ int get_server_socket(struct sockaddr_in *address, int listen_port) {
     int yes = 1;
     int server_socket;
     // create a master socket
-    server_socket = socket(AF_INET, SOCK_STREAM, 0);
+    server_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (server_socket <= 0) {
         perror("socket failed");
         exit(EXIT_FAILURE);
@@ -126,9 +126,9 @@ int main(int argc, const char** argv)
     double client_throughputs_current[MAX_CLIENTS] = {0.0};
     string client_ips[MAX_CLIENTS];
     int bitrate_level[MAX_BITRATE_LEVEL] = {0};
-     // create proxy client socket
-     int proxy_client_socket;
-     struct sockaddr_in client_addr;
+    // create proxy client socket
+    int proxy_client_socket;
+    struct sockaddr_in client_addr;
     if((proxy_client_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0){
         perror("socket creation failed");
         exit(1);
@@ -150,10 +150,10 @@ int main(int argc, const char** argv)
     while (1)
     {
         // clear the socket set
-        FD_ZERO(&readfds);printf("hehe1\n");
+        FD_ZERO(&readfds);
 
         // add master socket to set
-        FD_SET(server_socket, &readfds);printf("hehe2.1\n");
+        FD_SET(server_socket, &readfds);
         for (int i = 0; i < MAX_CLIENTS; i++)
         {
             client_sock = client_sockets[i];
@@ -161,14 +161,14 @@ int main(int argc, const char** argv)
             {
                 FD_SET(client_sock, &readfds);printf("yes! %d\n",i);
             }
-        }printf("hehe2.2\n");
+        }
         // wait for an activity on one of the sockets , timeout is NULL ,
         // so wait indefinitely
-        int activity = select(FD_SETSIZE, &readfds, NULL, NULL, NULL);printf("hehe2.3\n");
+        int activity = select(FD_SETSIZE, &readfds, NULL, NULL, NULL);
         if ((activity < 0) && (errno != EINTR))
         {
             perror("select error");
-        }printf("hehe2\n");
+        }
 
         // If something happened on the server socket, then its an incoming connection, call accept()
         if (FD_ISSET(server_socket, &readfds))
@@ -203,7 +203,7 @@ int main(int argc, const char** argv)
                     break;
                 }
             }
-        }printf("hehe3\n");
+        }printf("Strat check clients\n");
         
         // else it's some IO operation on a client socket
         for (int i = 0; i < MAX_CLIENTS; i++)
@@ -219,7 +219,7 @@ int main(int argc, const char** argv)
                             //(socklen_t *)&client_addrlen);
                 char buffer[MAX_MESSAGE_SIZE];
                 int valread = read(client_sock, buffer, MAX_MESSAGE_SIZE);
-                printf("here read c buffer\n%s\n\n",buffer);
+                printf("here read client's buffer\n\n\n");
                 if (valread == 0)
                 {
                     // Somebody disconnected , get their details and print
@@ -240,26 +240,24 @@ int main(int argc, const char** argv)
                     //if it's f4m request...
                     if ((loc = message.find(".f4m")) != message.npos){
                         printf("here we want to deal with f4m\n\n\n");
+                        
+                        //cout << message << endl;
                         string message_nolist = message, message_buffer;
                         memset(buffer, 0, MAX_MESSAGE_SIZE);
                         message_nolist.insert(loc, "_nolist");
-                        
-                        //_nolist.f4m process
-                        if (send(proxy_client_socket, message_nolist.c_str(), message_nolist.size(), 0) < 0){
-                            perror("Error: send to server failed\n");
-                            exit(EXIT_FAILURE);
-                        }
+                        //cout << message_nolist << endl;
+                        // original .f4m process
+                        cout << message << endl;
+                        if (send(proxy_client_socket, message.c_str(), message.size(), 0) < 0)
+                            printf("send to server failed\n");
+
                         valread = read(proxy_client_socket, buffer, MAX_MESSAGE_SIZE);
                         if (valread == 0){
                             printf("---Server disconnected---\n");
                         }
                         buffer[valread] = '\0';
-                        message_buffer = buffer;
-                        if (send(client_sock, buffer, valread, 0) < 0){
-                            perror("Error: send to client failed\n");
-                            exit(EXIT_FAILURE);
-                        }
-                        
+                        message_buffer = buffer;//cout << message_buffer << endl;
+
                         //Locally parse for header length
                         size_t header_end = message_buffer.find("\r\n\r\n");
                         if(header_end == message_buffer.npos)
@@ -278,7 +276,7 @@ int main(int argc, const char** argv)
                         }
                         size_t digit_start = content_length_info + 16;
                         size_t digit_end;
-                        for(digit_end = digit_start; isdigit(message[digit_end]); digit_end++)
+                        for(digit_end = digit_start; isdigit(message_buffer[digit_end]); digit_end++)
                         {
                             ;
                         }
@@ -286,52 +284,89 @@ int main(int argc, const char** argv)
                         
                         // receive and send back the remaining part
                         int remaining_length = content_length + header_length - valread;
-                        while(remaining_length > 0)
-                        {
-                            valread = read(proxy_client_socket, buffer, MAX_MESSAGE_SIZE);
-                            remaining_length -= valread;
-                            send(client_sock, buffer, valread, 0);
+                        while(remaining_length > 0){
                             memset(buffer, 0, MAX_MESSAGE_SIZE);
+                            valread = recv(proxy_client_socket, buffer, MAX_MESSAGE_SIZE, 0);
+                            remaining_length -= valread;
+                            message_buffer += buffer;
+                        }//cout << message_buffer << endl;
+
+                        while(1){
+                            size_t bitrate_info = message_buffer.find("bitrate=");
+                            if(bitrate_info == message_buffer.npos)
+                                break;
+                            digit_start = bitrate_info + 9;
+                            for(digit_end = digit_start; isdigit(message_buffer[digit_end]); digit_end++);
+                            int bitrate = stoi(message_buffer.substr(digit_start, digit_end-digit_start));
+                            message_buffer[digit_start - 5] = 'l';
+                            
+                            for(int j=0;j<MAX_BITRATE_LEVEL;j++){
+                                if(bitrate_level[j] == 0){
+                                    bitrate_level[j] = bitrate;
+                                    printf("new bitrate: %d\n", bitrate);
+                                    break;
+                                }
+                            }
                         }
 
-
-                        // original .f4m process
-                        if (send(proxy_client_socket, message.c_str(), message.size(), 0) < 0)
-                            printf("send to server failed\n");
-
+                        //_nolist.f4m process
+                        if (send(proxy_client_socket, message_nolist.c_str(), message_nolist.size(), 0) < 0){
+                            perror("Error: send to server failed\n");
+                            exit(EXIT_FAILURE);
+                        }cout << message_nolist << endl;
                         valread = read(proxy_client_socket, buffer, MAX_MESSAGE_SIZE);
                         if (valread == 0){
                             printf("---Server disconnected---\n");
                         }
                         buffer[valread] = '\0';
                         message_buffer = buffer;
-
-                        while(1){
-                            size_t bitrate_info = message_buffer.find("bitrate: \"");
-                            if(bitrate_info == message_buffer.npos)
-                                break;
-                            digit_start = bitrate_info + 10;
-                            for(digit_end = digit_start; isdigit(message[digit_end]); digit_end++);
-                            int bitrate = stoi(message_buffer.substr(digit_start, digit_end-digit_start));
-                            
-                            for(int j=0;j<MAX_BITRATE_LEVEL;j++){
-                                if(bitrate_level[j] == 0){
-                                    bitrate_level[j] = bitrate;
-                                    break;
-                                }
-                            }
+                        if (send(client_sock, buffer, valread, 0) < 0){
+                            perror("Error: send to client failed\n");
+                            exit(EXIT_FAILURE);
                         }
-                        while(remaining_length > 0){
+                        
+                        //Locally parse for header length
+                        header_end = message_buffer.find("\r\n\r\n");
+                        if(header_end == message_buffer.npos)
+                        {
+                            perror("Error: fail to find header_end_1");
+                            exit(EXIT_FAILURE);
+                        }
+                        header_length = static_cast<int>(header_end) +4;
+                        
+                        //Locally parse for content length
+                        content_length_info = message_buffer.find("Content-Length: ");
+                        if(content_length_info == message_buffer.npos)
+                        {
+                            perror("Error: fail to find content length info");
+                            exit(EXIT_FAILURE);
+                        }
+                        digit_start = content_length_info + 16;
+                        for(digit_end = digit_start; isdigit(message_buffer[digit_end]); digit_end++)
+                        {
+                            ;
+                        }
+                        content_length = stoi(message_buffer.substr(digit_start, digit_end-digit_start));
+                        
+                        // receive and send back the remaining part
+                        remaining_length = content_length + header_length - valread;
+                        while(remaining_length > 0)
+                        {
+                            memset(buffer, 0, MAX_MESSAGE_SIZE);
                             valread = read(proxy_client_socket, buffer, MAX_MESSAGE_SIZE);
                             remaining_length -= valread;
-                            memset(buffer, 0, MAX_MESSAGE_SIZE);
+                            send(client_sock, buffer, valread, 0);
                         }
+
+
+                        
                     }
                     //if it's video chunk request...
                     else if( (loc = message.find("Seg")) != message.npos)
                     {
                         printf("here we want to deal with video trunk\n\n\n");
                         //get the position of bitrate
+                        cout << message << endl;
                         size_t end_position = loc - 1;
                         size_t start_position = end_position;
                         while(start_position >= 0 && isdigit(message[start_position]))
@@ -349,11 +384,13 @@ int main(int argc, const char** argv)
                         
                         //calculate the adapted bitrate
                         int new_bitrate = choose_bitrate(client_throughputs_current[i], bitrate_level);
+                        printf("here new: %d\n", new_bitrate);
                         string chunk_name = to_string(new_bitrate) + message.substr(loc, chunk_end_position-loc+1);
                         //modify request
-                        message.replace(start_position, end_position-start_position, to_string(new_bitrate));
+                        message.replace(start_position, end_position-start_position+1, to_string(new_bitrate));
                         //send the adapted request to server
                         send(proxy_client_socket, message.c_str(), message.size(), 0);
+                        cout << message << endl;
                         
                         //Then ready to receive response from server
                         message.erase();
@@ -363,11 +400,12 @@ int main(int argc, const char** argv)
                         valread = read(proxy_client_socket, buffer, MAX_MESSAGE_SIZE);
                         buffer[valread] = '\0';
                         message = buffer;
-                        memset(buffer, 0, MAX_MESSAGE_SIZE);
+                        cout << message << endl;
+                        printf("here: %d", valread);
 
                         message[valread] = '\0';
                         //send the response to client
-                        send(client_sock, message.c_str(), valread, 0);
+                        send(client_sock, buffer, valread, 0);
                         
                         //Locally parse for header length
                         size_t header_end = message.find("\r\n\r\n");
@@ -414,18 +452,23 @@ int main(int argc, const char** argv)
                     {
                         printf("here we want to other requests\n\n");
                         //first send the request to server
-                        send(proxy_client_socket, message.c_str(), valread, 0);//printf("here send s buffer\n%d\n\n",ang);
+                        send(proxy_client_socket, message.c_str(), valread, 0);
                         
                         //Then receive response from server, and send back to client
                         message.erase();
                         memset(buffer, 0, MAX_MESSAGE_SIZE);
-                        valread = read(proxy_client_socket, buffer, MAX_MESSAGE_SIZE);
-                        buffer[valread] = '\0';//printf("here\n%s\n\n",buffer);
-                        message = buffer;
-                        memset(buffer, 0, MAX_MESSAGE_SIZE);
+                        valread = recv(proxy_client_socket, buffer, MAX_MESSAGE_SIZE, 0);
+                        buffer[valread] = '\0';//printf("here len of buffer read\n%d\n\n",(int)(buffer[331]));
+                        for(int j = 0; j < valread; j++){
+                            message.push_back(buffer[j]);
+                        }
+                        //message = buffer;
+                        //memset(buffer, 0, MAX_MESSAGE_SIZE);
                         message[valread] = '\0';//printf("here\n%s\n\n",message.c_str());
                         //send the response to client
-                        send(client_sock, message.c_str(), valread, 0);printf("\n%s\n",message.c_str());
+                        int age = send(client_sock, buffer, valread, 0);
+                        printf("\nmessage(can not print)\nmessage len: %d\n", age);
+                        //cout << "\nhere cin:\n" << message << endl;
                         
                         //Locally parse for header length
                         size_t header_end = message.find("\r\n\r\n");
@@ -450,19 +493,20 @@ int main(int argc, const char** argv)
                             ;
                         }
                         int content_length = stoi(message.substr(digit_start, digit_end-digit_start));
-                        printf("\ncontent_len: %d\n",content_length);
+                        printf("\ncontent_len: %d\nheader_len: %d",content_length, header_length);
                         
                         // receive and send back the remaining part
                         int remaining_length = content_length + header_length - valread;
+                        printf("\nremain_len: %d\n",remaining_length);
                         while(remaining_length > 0)
                         {
-                            printf("\n%s\nlen: %d\n",message.c_str(), remaining_length);
                             memset(buffer, 0, MAX_MESSAGE_SIZE);
-                            valread = read(proxy_client_socket, buffer, MAX_MESSAGE_SIZE);
-                            buffer[valread] = '\0';
+                            //sleep(1);
+                            valread = recv(proxy_client_socket, buffer, MAX_MESSAGE_SIZE, 0);
+                            printf("\nwhile_send: %d\nremaining_len: %d\n",valread, remaining_length);
+                            //buffer[valread] = '\0';
                             remaining_length -= valread;
                             send(client_sock, buffer, valread, 0);
-                            memset(buffer, 0, MAX_MESSAGE_SIZE);
                         }
                         printf("here we end other requests\n\n");
                     }
