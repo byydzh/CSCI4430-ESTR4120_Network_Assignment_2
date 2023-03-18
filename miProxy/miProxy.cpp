@@ -20,7 +20,7 @@
 
 
 #define MAX_CLIENTS 10
-#define MAX_MESSAGE_SIZE 20000
+#define MAX_MESSAGE_SIZE 2048
 #define MAX_REQUEST_LINE_LENGTH 1024
 #define MAX_BITRATE_LEVEL 10
 
@@ -30,7 +30,7 @@ int get_server_socket(struct sockaddr_in *address, int listen_port) {
     int yes = 1;
     int server_socket;
     // create a master socket
-    server_socket = socket(AF_INET, SOCK_STREAM, 0);
+    server_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (server_socket <= 0) {
         perror("socket failed");
         exit(EXIT_FAILURE);
@@ -126,9 +126,9 @@ int main(int argc, const char** argv)
     double client_throughputs_current[MAX_CLIENTS] = {0.0};
     string client_ips[MAX_CLIENTS];
     int bitrate_level[MAX_BITRATE_LEVEL] = {0};
-     // create proxy client socket
-     int proxy_client_socket;
-     struct sockaddr_in client_addr;
+    // create proxy client socket
+    int proxy_client_socket;
+    struct sockaddr_in client_addr;
     if((proxy_client_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0){
         perror("socket creation failed");
         exit(1);
@@ -150,10 +150,10 @@ int main(int argc, const char** argv)
     while (1)
     {
         // clear the socket set
-        FD_ZERO(&readfds);printf("hehe1\n");
+        FD_ZERO(&readfds);
 
         // add master socket to set
-        FD_SET(server_socket, &readfds);printf("hehe2.1\n");
+        FD_SET(server_socket, &readfds);
         for (int i = 0; i < MAX_CLIENTS; i++)
         {
             client_sock = client_sockets[i];
@@ -161,14 +161,14 @@ int main(int argc, const char** argv)
             {
                 FD_SET(client_sock, &readfds);printf("yes! %d\n",i);
             }
-        }printf("hehe2.2\n");
+        }
         // wait for an activity on one of the sockets , timeout is NULL ,
         // so wait indefinitely
-        int activity = select(FD_SETSIZE, &readfds, NULL, NULL, NULL);printf("hehe2.3\n");
+        int activity = select(FD_SETSIZE, &readfds, NULL, NULL, NULL);
         if ((activity < 0) && (errno != EINTR))
         {
             perror("select error");
-        }printf("hehe2\n");
+        }
 
         // If something happened on the server socket, then its an incoming connection, call accept()
         if (FD_ISSET(server_socket, &readfds))
@@ -203,7 +203,7 @@ int main(int argc, const char** argv)
                     break;
                 }
             }
-        }printf("hehe3\n");
+        }printf("Strat check clients\n");
         
         // else it's some IO operation on a client socket
         for (int i = 0; i < MAX_CLIENTS; i++)
@@ -219,7 +219,7 @@ int main(int argc, const char** argv)
                             //(socklen_t *)&client_addrlen);
                 char buffer[MAX_MESSAGE_SIZE];
                 int valread = read(client_sock, buffer, MAX_MESSAGE_SIZE);
-                printf("here read c buffer\n%s\n\n",buffer);
+                printf("here read client's buffer\n%s\n\n",buffer);
                 if (valread == 0)
                 {
                     // Somebody disconnected , get their details and print
@@ -414,18 +414,23 @@ int main(int argc, const char** argv)
                     {
                         printf("here we want to other requests\n\n");
                         //first send the request to server
-                        send(proxy_client_socket, message.c_str(), valread, 0);//printf("here send s buffer\n%d\n\n",ang);
+                        send(proxy_client_socket, message.c_str(), valread, 0);
                         
                         //Then receive response from server, and send back to client
                         message.erase();
                         memset(buffer, 0, MAX_MESSAGE_SIZE);
-                        valread = read(proxy_client_socket, buffer, MAX_MESSAGE_SIZE);
-                        buffer[valread] = '\0';//printf("here\n%s\n\n",buffer);
-                        message = buffer;
-                        memset(buffer, 0, MAX_MESSAGE_SIZE);
+                        valread = recv(proxy_client_socket, buffer, MAX_MESSAGE_SIZE, 0);
+                        buffer[valread] = '\0';//printf("here len of buffer read\n%d\n\n",(int)(buffer[331]));
+                        for(int j = 0; j < valread; j++){
+                            message.push_back(buffer[j]);
+                        }
+                        //message = buffer;
+                        //memset(buffer, 0, MAX_MESSAGE_SIZE);
                         message[valread] = '\0';//printf("here\n%s\n\n",message.c_str());
                         //send the response to client
-                        send(client_sock, message.c_str(), valread, 0);printf("\n%s\n",message.c_str());
+                        int age = send(client_sock, buffer, valread, 0);
+                        printf("\nmessage(can not print)\nmessage len: %d\n", age);
+                        //cout << "\nhere cin:\n" << message << endl;
                         
                         //Locally parse for header length
                         size_t header_end = message.find("\r\n\r\n");
@@ -450,19 +455,20 @@ int main(int argc, const char** argv)
                             ;
                         }
                         int content_length = stoi(message.substr(digit_start, digit_end-digit_start));
-                        printf("\ncontent_len: %d\n",content_length);
+                        printf("\ncontent_len: %d\nheader_len: %d",content_length, header_length);
                         
                         // receive and send back the remaining part
                         int remaining_length = content_length + header_length - valread;
+                        printf("\nremain_len: %d\n",remaining_length);
                         while(remaining_length > 0)
                         {
-                            printf("\n%s\nlen: %d\n",message.c_str(), remaining_length);
                             memset(buffer, 0, MAX_MESSAGE_SIZE);
-                            valread = read(proxy_client_socket, buffer, MAX_MESSAGE_SIZE);
-                            buffer[valread] = '\0';
+                            //sleep(1);
+                            valread = recv(proxy_client_socket, buffer, MAX_MESSAGE_SIZE, 0);
+                            printf("\nwhile_send: %d\nremaining_len: %d\n",valread, remaining_length);
+                            //buffer[valread] = '\0';
                             remaining_length -= valread;
                             send(client_sock, buffer, valread, 0);
-                            memset(buffer, 0, MAX_MESSAGE_SIZE);
                         }
                         printf("here we end other requests\n\n");
                     }
