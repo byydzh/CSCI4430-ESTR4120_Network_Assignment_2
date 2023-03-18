@@ -1,0 +1,409 @@
+[sudo] password for csci4430: 
+*** Removing excess controllers/ofprotocols/ofdatapaths/pings/noxes
+killall controller ofprotocol ofdatapath ping nox_corelt-nox_core ovs-openflowd ovs-controllerovs-testcontroller udpbwtest mnexec ivs ryu-manager 2> /dev/null
+killall -9 controller ofprotocol ofdatapath ping nox_corelt-nox_core ovs-openflowd ovs-controllerovs-testcontroller udpbwtest mnexec ivs ryu-manager 2> /dev/null
+pkill -9 -f "sudo mnexec"
+*** Removing junk from /tmp
+rm -f /tmp/vconn* /tmp/vlogs* /tmp/*.out /tmp/*.log
+*** Removing old X11 tunnels
+*** Removing excess kernel datapaths
+ps ax | egrep -o 'dp[0-9]+' | sed 's/dp/nl:/'
+***  Removing OVS datapaths
+ovs-vsctl --timeout=1 list-br
+ovs-vsctl --timeout=1 list-br
+*** Removing all links of the pattern foo-ethX
+ip link show | egrep -o '([-_.[:alnum:]]+-eth[[:digit:]]+)'
+ip link show
+*** Killing stale mininet node processes
+pkill -9 -f mininet:
+*** Shutting down stale tunnels
+pkill -9 -f Tunnel=Ethernet
+pkill -9 -f .ssh/mn
+rm -f ~/.ssh/mn/*
+*** Cleanup complete.
+*** Creating network
+*** Adding controller
+*** Adding hosts:
+h1 h2 h3 
+*** Adding switches:
+s1 s2 s3 
+*** Adding links:
+(h1, s1) (h2, s2) (h3, s3) (10.00Mbit 40ms delay) (10.00Mbit 40ms delay) (s1, s2) (10.00Mbit 10ms delay) (10.00Mbit 10ms delay) (s2, s3) 
+*** Configuring hosts
+h1 h2 h3 
+*** Starting controller
+c0 
+*** Starting 3 switches
+s1 s2 s3 ...(10.00Mbit 40ms delay) (10.00Mbit 40ms delay) (10.00Mbit 10ms delay) (10.00Mbit 10ms delay) 
+*** h2 : ('make clean && make && timeout 100 ./miProxy --nodns 8888 10.0.0.1 0.01 log1.log',)
+rm -rf miProxy *.dSYM
+g++     miProxy.cpp   -o miProxy
+---Listening on port 8888---
+Add server socket to readfds
+Ready for select...
+select end
+
+---New connection---
+socket fd is 5 , ip is : 10.0.0.3 , port : 36946 
+incoming connection finish
+Add server socket to readfds
+Add client socket 5 to readfds
+Ready for select...
+select end
+incoming connection finish
+New message from client fd 5:
+[GET / HTTP/1.1
+Host: 10.0.0.2:8888
+User-Agent: Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:59.0) Gecko/20100101 Firefox/59.0
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+Accept-Language: en-US,en;q=0.5
+Accept-Encoding: gzip, deflate
+Connection: keep-alive
+Upgrade-Insecure-Requests: 1
+
+]
+here we want to other requests
+
+
+valread: 2189; valread: 2189
+
+content_len: 1892
+here we end other requests
+
+Add server socket to readfds
+Add client socket 5 to readfds
+Ready for select...
+select end
+incoming connection finish
+New message from client fd 5:
+[GET /swfobject.js HTTP/1.1
+Host: 10.0.0.2:8888
+User-Agent: Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:59.0) Gecko/20100101 Firefox/59.0
+Accept: */*
+Accept-Language: en-US,en;q=0.5
+Accept-Encoding: gzip, deflate
+Referer: http://10.0.0.2:8888/
+Connection: keep-alive
+
+nt-Type: text/html
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <title>Strobe Media Playback</title>
+    <script type="text/javascript" src="swfobject.js"></script>
+	<script type="text/javascript">  		
+        var loc = window.location.host
+
+    	// Create a StrobeMediaPlayback configuration
+		var parameters =
+			{	src: "http://"+loc+"/vod/big_buck_bunny.f4m"
+   			,	autoPlay: true
+			,	controlBarAutoHide: false
+			,   javascriptCallbackFunction: "onJavaScriptBridgeCreated"
+			};
+    		
+		// Embed the player SWF:
+		swfobject.embedSWF
+			( "StrobeMediaPlayback.swf"
+			, "strobeMediaPlayback"
+			, 1280
+			, 720
+			, "10.1.0"
+			, {}
+			, parameters
+			, { allowFullScreen: "true"}
+			, { name: "strobeMediaPlayback" }
+			);
+
+			
+		function onCurrentTimeChange(time, playerId)
+		{
+			document.getElementById("currentTime").innerHTML = time;
+		}
+		
+		function onDurationChange(time, playerId)
+		{
+			document.getElementById("duration").innerHTML = time;
+		}
+		var player = null;
+		function onJavaScriptBridgeCreated(playerId)
+		{
+			if (player == null) {
+				player = document.getElementById(playerId);
+				
+				// Add event listeners that will update the
+				player.addEventListener("currentTimeChange", "onCurrentTimeChange");
+				player.addEventListener("durationChange", "onDurationChange");
+				
+				// Pause/Resume the playback when we click the Play/Pause link
+				document.getElementById("play-pause").onclick = function(){
+					var state = player.getState();
+					if (state == "ready" || state == "paused") {
+						player.play2();
+					}
+					else
+						if (state == "playing") {
+							player.pause();
+						}
+					return false;
+				};
+			}
+		}
+    </script>  	
+  </head>
+  <body>
+	<div id="strobeMediaPlayback">
+      <p>Alternative content</p>
+    </div>
+  </body>
+</html>
+]
+here we want to other requests
+
+
+valread: 2896; valread: 2896
+
+content_len: 10220
+remaining length: 7636  valread: 2896  valsend: 2896
+
+remaining length: 4740  valread: 2896  valsend: 2896
+
+remaining length: 1844  valread: 1448  valsend: 1448
+
+remaining length: 396  valread: 396  valsend: 396
+
+here we end other requests
+
+Add server socket to readfds
+Add client socket 5 to readfds
+Ready for select...
+select end
+incoming connection finish
+New message from client fd 5:
+[GET /StrobeMediaPlayback.swf HTTP/1.1
+Host: 10.0.0.2:8888
+User-Agent: Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:59.0) Gecko/20100101 Firefox/59.0
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+Accept-Language: en-US,en;q=0.5
+Accept-Encoding: gzip, deflate
+Referer: http://10.0.0.2:8888/
+Connection: keep-alive
+
+]
+here we want to other requests
+
+
+valread: 2896; valread: 2896
+
+content_len: 253300
+remaining length: 250725  valread: 2896  valsend: 2896
+
+remaining length: 247829  valread: 2896  valsend: 2896
+
+remaining length: 244933  valread: 2896  valsend: 2896
+
+remaining length: 242037  valread: 2896  valsend: 2896
+
+remaining length: 239141  valread: 2896  valsend: 2896
+
+remaining length: 236245  valread: 2896  valsend: 2896
+
+remaining length: 233349  valread: 2896  valsend: 2896
+
+remaining length: 230453  valread: 2896  valsend: 2896
+
+remaining length: 227557  valread: 2896  valsend: 2896
+
+remaining length: 224661  valread: 2896  valsend: 2896
+
+remaining length: 221765  valread: 2896  valsend: 2896
+
+remaining length: 218869  valread: 2896  valsend: 2896
+
+remaining length: 215973  valread: 2896  valsend: 2896
+
+remaining length: 213077  valread: 2896  valsend: 2896
+
+remaining length: 210181  valread: 2896  valsend: 2896
+
+remaining length: 207285  valread: 2896  valsend: 2896
+
+remaining length: 204389  valread: 2896  valsend: 2896
+
+remaining length: 201493  valread: 2896  valsend: 2896
+
+remaining length: 198597  valread: 2896  valsend: 2896
+
+remaining length: 195701  valread: 2896  valsend: 2896
+
+remaining length: 192805  valread: 2896  valsend: 2896
+
+remaining length: 189909  valread: 2896  valsend: 2896
+
+remaining length: 187013  valread: 2896  valsend: 2896
+
+remaining length: 184117  valread: 2896  valsend: 2896
+
+remaining length: 181221  valread: 2896  valsend: 2896
+
+remaining length: 178325  valread: 2896  valsend: 2896
+
+remaining length: 175429  valread: 10000  valsend: 10000
+
+remaining length: 165429  valread: 480  valsend: 480
+
+remaining length: 164949  valread: 2896  valsend: 2896
+
+remaining length: 162053  valread: 2896  valsend: 2896
+
+remaining length: 159157  valread: 2896  valsend: 2896
+
+remaining length: 156261  valread: 2896  valsend: 2896
+
+remaining length: 153365  valread: 2896  valsend: 2896
+
+remaining length: 150469  valread: 1104  valsend: 1104
+
+remaining length: 149365  valread: 2896  valsend: 2896
+
+remaining length: 146469  valread: 2896  valsend: 2896
+
+remaining length: 143573  valread: 1824  valsend: 1824
+
+remaining length: 141749  valread: 2896  valsend: 2896
+
+remaining length: 138853  valread: 2896  valsend: 2896
+
+remaining length: 135957  valread: 1448  valsend: 1448
+
+remaining length: 134509  valread: 2896  valsend: 2896
+
+remaining length: 131613  valread: 2520  valsend: 2520
+
+remaining length: 129093  valread: 2896  valsend: 2896
+
+remaining length: 126197  valread: 2896  valsend: 2896
+
+remaining length: 123301  valread: 2896  valsend: 2896
+
+remaining length: 120405  valread: 2896  valsend: 2896
+
+remaining length: 117509  valread: 2896  valsend: 2896
+
+remaining length: 114613  valread: 2896  valsend: 2896
+
+remaining length: 111717  valread: 2896  valsend: 2896
+
+remaining length: 108821  valread: 2896  valsend: 2896
+
+remaining length: 105925  valread: 2896  valsend: 2896
+
+remaining length: 103029  valread: 2896  valsend: 2896
+
+remaining length: 100133  valread: 2896  valsend: 2896
+
+remaining length: 97237  valread: 2896  valsend: 2896
+
+remaining length: 94341  valread: 2896  valsend: 2896
+
+remaining length: 91445  valread: 2896  valsend: 2896
+
+remaining length: 88549  valread: 2896  valsend: 2896
+
+remaining length: 85653  valread: 2896  valsend: 2896
+
+remaining length: 82757  valread: 2896  valsend: 2896
+
+remaining length: 79861  valread: 2896  valsend: 2896
+
+remaining length: 76965  valread: 2896  valsend: 2896
+
+remaining length: 74069  valread: 2896  valsend: 2896
+
+remaining length: 71173  valread: 2896  valsend: 2896
+
+remaining length: 68277  valread: 2896  valsend: 2896
+
+remaining length: 65381  valread: 2896  valsend: 2896
+
+remaining length: 62485  valread: 2896  valsend: 2896
+
+remaining length: 59589  valread: 2896  valsend: 2896
+
+remaining length: 56693  valread: 2896  valsend: 2896
+
+remaining length: 53797  valread: 2896  valsend: 2896
+
+remaining length: 50901  valread: 2896  valsend: 2896
+
+remaining length: 48005  valread: 2896  valsend: 2896
+
+remaining length: 45109  valread: 2896  valsend: 2896
+
+remaining length: 42213  valread: 2896  valsend: 2896
+
+remaining length: 39317  valread: 2896  valsend: 2896
+
+remaining length: 36421  valread: 2896  valsend: 2896
+
+remaining length: 33525  valread: 2896  valsend: 2896
+
+remaining length: 30629  valread: 2896  valsend: 2896
+
+remaining length: 27733  valread: 2896  valsend: 2896
+
+remaining length: 24837  valread: 2896  valsend: 2896
+
+remaining length: 21941  valread: 2896  valsend: 2896
+
+remaining length: 19045  valread: 2896  valsend: 2896
+
+remaining length: 16149  valread: 2896  valsend: 2896
+
+remaining length: 13253  valread: 2896  valsend: 2896
+
+remaining length: 10357  valread: 2896  valsend: 2896
+
+remaining length: 7461  valread: 2896  valsend: 2896
+
+remaining length: 4565  valread: 2896  valsend: 2896
+
+remaining length: 1669  valread: 1669  valsend: 1669
+
+here we end other requests
+
+Add server socket to readfds
+Add client socket 5 to readfds
+Ready for select...
+incoming connection finish
+New message from client fd 5:
+[GET /favicon.ico HTTP/1.1
+Host: 10.0.0.2:8888
+User-Agent: Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:59.0) Gecko/20100101 Firefox/59.0
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+Accept-Language: en-US,en;q=0.5
+Accept-Encoding: gzip, deflate
+Connection: keep-alive
+
+]
+here we want to other requests
+
+
+valread: 431; valread: 431
+
+content_len: 209
+here we end other requests
+
+Add server socket to readfds
+Add client socket 5 to readfds
+Ready for select...
+*** Stopping 1 controllers
+c0 
+*** Stopping 5 links
+.....
+*** Stopping 3 switches
+s1 s2 s3 
+*** Stopping 3 hosts
+h1 h2 h3 
+*** Done
