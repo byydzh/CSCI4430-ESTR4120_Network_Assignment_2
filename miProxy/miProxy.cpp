@@ -20,7 +20,7 @@
 
 
 #define MAX_CLIENTS 10
-#define MAX_MESSAGE_SIZE 2048
+#define MAX_MESSAGE_SIZE 3000
 #define MAX_REQUEST_LINE_LENGTH 1024
 #define MAX_BITRATE_LEVEL 10
 
@@ -219,7 +219,7 @@ int main(int argc, const char** argv)
                             //(socklen_t *)&client_addrlen);
                 char buffer[MAX_MESSAGE_SIZE];
                 int valread = read(client_sock, buffer, MAX_MESSAGE_SIZE);
-                printf("here read client's buffer\n%s\n\n",buffer);
+                printf("here read client's buffer\n\n\n");
                 if (valread == 0)
                 {
                     // Somebody disconnected , get their details and print
