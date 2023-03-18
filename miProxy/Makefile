@@ -9,17 +9,18 @@
 ###################
 ###################
 
+	
 CXX = g++
 # TODO For C++ only.
-CXXFLAGS = -Wconversion -Wall -Werror -Wextra -pedantic 
+CXXFLAGS = -g -std=c++11 -pedantic
 
 all: miProxy
 
 # TODO Modify source file name for your project.
 # For C only.
-# SOURCES = iPerfer.c
-# For C++ only.
 SOURCES = miProxy.cpp
+# For C++ only.
+# SOURCES = iPerfer.cpp
 iPerfer: $(SOURCES)
 	$(CXX) $(CXXFLAGS) $(SOURCES) -o miProxy
 
