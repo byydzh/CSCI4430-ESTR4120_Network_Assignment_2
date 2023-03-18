@@ -82,7 +82,7 @@ void out2log(string log_name, string browser_ip, string chunkname, string server
 }
 
 int choose_bitrate(double avg_tput, int* bitrate_level){
-    double limit = (avg_tput * 1.5);
+    double limit = (avg_tput / 1.5);
     int current_bitrate = 10;
     for(int i=0;i<MAX_BITRATE_LEVEL;i++){
         if(current_bitrate < bitrate_level[i] && bitrate_level[i] <= limit)
@@ -124,6 +124,8 @@ int main(int argc, const char** argv)
     int client_sock;
     int client_sockets[MAX_CLIENTS] = {0};
     double client_throughputs_current[MAX_CLIENTS] = {0.0};
+    for(int i=0; i<MAX_CLIENTS; i++)
+        client_throughputs_current[i] = 10.0;
     string client_ips[MAX_CLIENTS];
     int bitrate_level[MAX_BITRATE_LEVEL] = {0};
     // create proxy client socket
@@ -187,7 +189,6 @@ int main(int argc, const char** argv)
                    inet_ntoa(server_address.sin_addr), ntohs(server_address.sin_port));
 
             // send new connection greeting message
-            // TODO: REMOVE THIS CALL TO SEND WHEN DOING THE ASSIGNMENT.
             //ssize_t send_ret = send(new_socket, message, strlen(message), 0);
             //printf("Welcome message sent successfully\n");
             
@@ -229,7 +230,7 @@ int main(int argc, const char** argv)
                     // Close the socket and mark as 0 in list for reuse
                     close(client_sock);
                     client_sockets[i] = 0;
-                    client_throughputs_current[i] = 0;
+                    client_throughputs_current[i] = 10.0;
                 }
                 else
                 {
